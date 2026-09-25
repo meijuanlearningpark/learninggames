@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>美梦枕</title>
+<style>
+*{box-sizing:border-box;font-family:"KaiTi","楷体",serif!important;font-weight:bold}
+html,body{margin:0;width:100%;min-height:100%;background:#eaf8e8;color:#24332a;overflow-x:auto}
+button{font-family:"KaiTi","楷体",serif!important;font-weight:bold}
+.screen{display:none;min-height:100vh;width:100%;padding:92px 24px 40px}
+.screen.active{display:block}
+.fixed-title,.game-title{position:fixed;top:0;left:0;width:100%;height:72px;display:flex;align-items:center;justify-content:center;background:#eaf8e8;z-index:1000;font-size:32px;font-weight:bold;border-bottom:1px solid rgba(45,92,61,.12)}
+.reading-shell{width:max-content;min-width:100%;margin:0 auto}
+.reading-grid{display:grid;grid-template-columns:repeat(8,130px);grid-auto-rows:130px;gap:2mm;width:max-content;margin:0 auto;justify-content:center}
+.reading-cell{width:130px;height:130px;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+.reading-char{position:relative;z-index:4;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:32px;line-height:1;font-weight:bold;text-align:center}
+.bubble-layer{position:absolute;inset:5px;border-radius:50%;z-index:2;opacity:1;transform:scale(1);transition:opacity .42s ease,transform .42s ease;border:2px solid rgba(255,255,255,.78);box-shadow:inset 10px 12px 22px rgba(255,255,255,.66),inset -10px -12px 24px rgba(40,70,90,.16),0 10px 18px rgba(60,90,75,.22);overflow:hidden}
+.bubble-layer::before{content:"";position:absolute;width:46%;height:30%;left:17%;top:12%;border-radius:50%;background:rgba(255,255,255,.72);filter:blur(2px);transform:rotate(-18deg)}
+.bubble-layer::after{content:"";position:absolute;width:18%;height:18%;right:18%;bottom:18%;border-radius:50%;background:rgba(255,255,255,.35)}
+.reading-cell.popped .bubble-layer{opacity:0;transform:scale(1.42)}
+.reading-cell.popped::before,.reading-cell.popped::after{content:"";position:absolute;left:50%;top:50%;width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.9);animation:splash .48s ease-out forwards;z-index:3;pointer-events:none}
+.reading-cell.popped::after{animation-delay:.04s}
+@keyframes splash{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(48px,-52px) scale(.2)}}
+.reading-controls,.game-controls{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:18px;margin-top:26px}
+.nav-btn,.game-btn{min-width:150px;height:52px;border:none;border-radius:18px;background:#fff7d8;box-shadow:0 6px 14px rgba(64,92,67,.18);font-size:24px;cursor:pointer;padding:0 22px}
+.nav-btn:disabled,.game-btn:disabled{opacity:.45;cursor:not-allowed}
+.page-indicator,.score-box,.timer-box{font-size:22px;min-height:40px;display:flex;align-items:center;justify-content:center}
+.score-box{margin-top:18px}
+.game-shell{width:100%;min-width:1150px;margin:0 auto}
+.game-grid{display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(3,170px);gap:8mm;width:100%;padding:0 8mm}
+.game-card{min-width:0;height:170px;border-radius:50%;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;border:2px solid rgba(255,255,255,.78);box-shadow:inset 10px 12px 22px rgba(255,255,255,.66),inset -10px -12px 24px rgba(40,70,90,.16),0 10px 18px rgba(60,90,75,.22);overflow:hidden;padding:18px;text-align:center;font-size:26px;line-height:1.08;transition:transform .18s ease,opacity .32s ease,box-shadow .18s ease}
+.game-card::before{content:"";position:absolute;width:44%;height:25%;left:15%;top:10%;border-radius:50%;background:rgba(255,255,255,.72);filter:blur(2px);transform:rotate(-18deg)}
+.game-card>span{position:relative;z-index:2;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow-wrap:anywhere}
+.game-card.selected{transform:scale(1.05);box-shadow:inset 10px 12px 22px rgba(255,255,255,.72),inset -10px -12px 24px rgba(40,70,90,.18),0 0 0 6px rgba(255,211,75,.72),0 12px 22px rgba(60,90,75,.24)}
+.game-card.matched{opacity:0;transform:scale(.15);pointer-events:none}
+.game-card.wrong{animation:wrongShake .34s ease}
+@keyframes wrongShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-10px)}75%{transform:translateX(10px)}}
+.game-status{display:flex;justify-content:center;align-items:center;gap:34px;margin:22px 0 4px;font-size:22px}
+@media(max-width:1100px){.screen{padding-left:16px;padding-right:16px}}
+</style>
+</head>
+<body>
+<section id="readingScreen" class="screen active">
+<div class="fixed-title">美梦枕</div>
+<div class="reading-shell">
+<div id="readingGrid" class="reading-grid"></div>
+<div class="reading-controls">
+<button id="prevBtn" class="nav-btn">上一页</button>
+<div id="pageIndicator" class="page-indicator"></div>
+<button id="nextBtn" class="nav-btn">下一页</button>
+</div>
+<div id="scoreBox" class="score-box"></div>
+<div class="reading-controls">
+<button id="readingSoundBtn" class="nav-btn" aria-pressed="true">声音：开</button>
+<button id="gameEntryBtn" class="nav-btn">游戏环节</button>
+</div>
+</div>
+</section>
+
+<section id="gameScreen" class="screen">
+<div class="game-title">故事21 美梦枕</div>
+<div class="game-shell">
+<div id="gameGrid" class="game-grid"></div>
+<div class="game-status"><div id="gamePageLabel"></div><div id="timerBox" class="timer-box"></div></div>
+<div class="game-controls">
+<button id="restartBtn" class="game-btn">重新挑战</button>
+<button id="nextGameBtn" class="game-btn">下一页</button>
+<button id="readOriginalBtn" class="game-btn">阅读原文</button>
+<button id="gameSoundBtn" class="game-btn" aria-pressed="true">声音：开</button>
+</div>
+</div>
+</section>
+
+<script>
+(()=>{
+"use strict";
+const readingPages=[
+"小狐狸很顽皮，喜欢捉弄同学。可是，它每做一件坏事，晚上睡觉时就会做噩梦。",
+"有一晚，小仙女来找小狐狸。她把美梦枕送给小狐狸。",
+"小仙女告诉小狐狸：“你每做一件好事，美梦枕就会出现一颗星星。你躺着它睡觉就不会做噩梦了。”",
+"于是，小狐狸开始做好事。小动物跌倒就上前扶它。小动物的东西不见了，它也帮忙找。",
+"日子一天天过去，小狐狸的美梦枕有满满的星星。从此，小狐狸每晚都做美梦，睡得很好。"
+];
+const wordPairs=[
+{
+"word": "狐狸",
+"pinyin": "hú lí"
+},
+{
+"word": "顽皮",
+"pinyin": "wán pí"
+},
+{
+"word": "捉弄",
+"pinyin": "zhuō nòng"
+},
+{
+"word": "坏事",
+"pinyin": "huài shì"
+},
+{
+"word": "噩梦",
+"pinyin": "è mèng"
+},
+{
+"word": "仙女",
+"pinyin": "xiān nǚ"
+},
+{
+"word": "美梦枕",
+"pinyin": "měi mèng zhěn"
+},
+{
+"word": "好事",
+"pinyin": "hǎo shì"
+},
+{
+"word": "星星",
+"pinyin": "xīng xīng"
+},
+{
+"word": "睡觉",
+"pinyin": "shuì jiào"
+},
+{
+"word": "跌倒",
+"pinyin": "diē dǎo"
+},
+{
+"word": "上前",
+"pinyin": "shàng qián"
+},
+{
+"word": "帮忙",
+"pinyin": "bāng máng"
+},
+{
+"word": "寻找",
+"pinyin": "xún zhǎo"
+},
+{
+"word": "日子",
+"pinyin": "rì zi"
+},
+{
+"word": "满满",
+"pinyin": "mǎn mǎn"
+},
+{
+"word": "从此",
+"pinyin": "cóng cǐ"
+},
+{
+"word": "每晚",
+"pinyin": "měi wǎn"
+},
+{
+"word": "睡着",
+"pinyin": "shuì zháo"
+},
+{
+"word": "同学",
+"pinyin": "tóng xué"
+},
+{
+"word": "一颗",
+"pinyin": "yì kē"
+},
+{
+"word": "出现",
+"pinyin": "chū xiàn"
+},
+{
+"word": "扶起",
+"pinyin": "fú qǐ"
+},
+{
+"word": "丢失",
+"pinyin": "diū shī"
+}
+];
+const bubbleColors=[
+["rgba(255,153,190,.46)","rgba(255,214,231,.62)"],["rgba(255,200,92,.48)","rgba(255,239,176,.62)"],["rgba(117,215,167,.46)","rgba(203,249,222,.62)"],["rgba(109,190,255,.45)","rgba(208,236,255,.62)"],["rgba(178,139,255,.45)","rgba(232,218,255,.62)"],["rgba(255,141,103,.45)","rgba(255,219,203,.62)"],["rgba(86,222,219,.45)","rgba(200,249,247,.62)"],["rgba(244,123,235,.43)","rgba(251,211,247,.62)"],["rgba(151,218,94,.45)","rgba(224,248,204,.62)"],["rgba(255,178,70,.45)","rgba(255,229,188,.62)"],["rgba(109,151,255,.45)","rgba(211,221,255,.62)"],["rgba(235,111,137,.43)","rgba(255,211,222,.62)"]
+];
+const $=id=>document.getElementById(id);
+const readingScreen=$("readingScreen"),gameScreen=$("gameScreen"),readingGrid=$("readingGrid"),prevBtn=$("prevBtn"),nextBtn=$("nextBtn"),pageIndicator=$("pageIndicator"),scoreBox=$("scoreBox"),gameEntryBtn=$("gameEntryBtn"),readingSoundBtn=$("readingSoundBtn"),gameSoundBtn=$("gameSoundBtn"),gameGrid=$("gameGrid"),restartBtn=$("restartBtn"),nextGameBtn=$("nextGameBtn"),readOriginalBtn=$("readOriginalBtn"),gamePageLabel=$("gamePageLabel"),timerBox=$("timerBox");
+let readingPageIndex=0,readPositions=new Set(),poppedPositions=new Set(),gamePageIndex=0,gamePages=[],selectedCards=[],matchedIds=new Set(),timerId=null,elapsedSeconds=0,lockSelection=false,readingSoundOn=true,gameSoundOn=true;
+function randomColor(){return bubbleColors[Math.floor(Math.random()*bubbleColors.length)]}
+function bubbleBackground(){const[c1,c2]=randomColor();return `radial-gradient(circle at 32% 28%,rgba(255,255,255,.92) 0%,${c2} 20%,${c1} 58%,rgba(255,255,255,.28) 100%)`}
+function speak(text){if(!("speechSynthesis"in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="zh-CN";u.rate=.78;u.pitch=1;window.speechSynthesis.speak(u)}
+function renderReadingPage(){
+readingGrid.innerHTML="";
+Array.from(readingPages[readingPageIndex]).forEach((char,charIndex)=>{
+const key=`${readingPageIndex}-${charIndex}`,cell=document.createElement("div"),bubble=document.createElement("div"),charEl=document.createElement("div");
+cell.className="reading-cell";if(poppedPositions.has(key))cell.classList.add("popped");
+bubble.className="bubble-layer";bubble.style.background=bubbleBackground();
+charEl.className="reading-char";charEl.textContent=char;
+cell.append(bubble,charEl);
+cell.addEventListener("click",()=>{if(cell.classList.contains("popped")){cell.classList.remove("popped");poppedPositions.delete(key)}else{cell.classList.add("popped");poppedPositions.add(key);readPositions.add(key);if(readingSoundOn)speak(char)}updateReadingStatus()});
+readingGrid.appendChild(cell)
+});
+prevBtn.disabled=readingPageIndex===0;nextBtn.disabled=readingPageIndex===readingPages.length-1;updateReadingStatus();window.scrollTo({top:0,left:0,behavior:"auto"})
+}
+function updateReadingStatus(){pageIndicator.textContent=`第 ${readingPageIndex+1} 页 / 共 ${readingPages.length} 页`;scoreBox.textContent=readingPageIndex===readingPages.length-1?`累计认读总数：${readPositions.size}`:""}
+prevBtn.onclick=()=>{if(readingPageIndex>0){readingPageIndex--;renderReadingPage()}};
+nextBtn.onclick=()=>{if(readingPageIndex<readingPages.length-1){readingPageIndex++;renderReadingPage()}};
+gameEntryBtn.onclick=()=>{stopTimer();readingScreen.classList.remove("active");gameScreen.classList.add("active");gamePageIndex=0;renderGamePage()};
+readingSoundBtn.onclick=()=>{readingSoundOn=!readingSoundOn;readingSoundBtn.textContent=`声音：${readingSoundOn?"开":"关"}`;readingSoundBtn.setAttribute("aria-pressed",String(readingSoundOn));if(!readingSoundOn&&window.speechSynthesis)window.speechSynthesis.cancel()};
+gameSoundBtn.onclick=()=>{gameSoundOn=!gameSoundOn;gameSoundBtn.textContent=`声音：${gameSoundOn?"开":"关"}`;gameSoundBtn.setAttribute("aria-pressed",String(gameSoundOn));if(!gameSoundOn&&window.speechSynthesis)window.speechSynthesis.cancel()};
+function buildGamePages(){for(let i=0;i<wordPairs.length;i+=9)gamePages.push(wordPairs.slice(i,i+9))}
+function shuffle(items){const r=[...items];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]]}return r}
+function formatPinyin(pair){const s=pair.pinyin.trim().split(/\s+/);return Array.from(pair.word).length>=3||pair.pinyin.length>12?s:[pair.pinyin]}
+function startTimer(){stopTimer();elapsedSeconds=0;timerBox.textContent="本页计时：0秒";timerId=setInterval(()=>{elapsedSeconds++;timerBox.textContent=`本页计时：${elapsedSeconds}秒`},1000)}
+function stopTimer(){if(timerId){clearInterval(timerId);timerId=null}}
+function renderGamePage(){
+selectedCards=[];matchedIds=new Set();lockSelection=false;gameGrid.innerHTML="";
+const pagePairs=gamePages[gamePageIndex],cards=[];
+pagePairs.forEach((pair,index)=>{const pairId=`${gamePageIndex}-${index}`;cards.push({pairId,type:"word",text:pair.word,pair},{pairId,type:"pinyin",text:pair.pinyin,pair})});
+shuffle(cards).forEach(card=>{const el=document.createElement("div"),span=document.createElement("span");el.className="game-card";el.dataset.pairId=card.pairId;el.dataset.type=card.type;el.style.background=bubbleBackground();
+if(card.type==="pinyin"){formatPinyin(card.pair).forEach(line=>{const l=document.createElement("span");l.textContent=line;span.appendChild(l)})}else span.textContent=card.text;
+el.appendChild(span);el.onclick=()=>{if(gameSoundOn)speak(card.pair.word);handleGameCard(el)};gameGrid.appendChild(el)});
+gamePageLabel.textContent=`第 ${gamePageIndex+1} 页 / 共 ${gamePages.length} 页`;nextGameBtn.disabled=gamePageIndex===gamePages.length-1;startTimer();window.scrollTo({top:0,left:0,behavior:"auto"})
+}
+function handleGameCard(card){
+if(lockSelection||card.classList.contains("matched")||card.classList.contains("selected"))return;
+card.classList.add("selected");selectedCards.push(card);if(selectedCards.length<2)return;
+lockSelection=true;const[first,second]=selectedCards,same=first.dataset.pairId===second.dataset.pairId&&first.dataset.type!==second.dataset.type;
+if(same){setTimeout(()=>{first.classList.remove("selected");second.classList.remove("selected");first.classList.add("matched");second.classList.add("matched");matchedIds.add(first.dataset.pairId);selectedCards=[];lockSelection=false;if(matchedIds.size===gamePages[gamePageIndex].length){stopTimer();timerBox.textContent=`完成！本页用时：${elapsedSeconds}秒`}},240)}
+else{first.classList.add("wrong");second.classList.add("wrong");setTimeout(()=>{first.classList.remove("selected","wrong");second.classList.remove("selected","wrong");selectedCards=[];lockSelection=false},620)}
+}
+restartBtn.onclick=renderGamePage;
+nextGameBtn.onclick=()=>{if(gamePageIndex<gamePages.length-1){gamePageIndex++;renderGamePage()}};
+readOriginalBtn.onclick=()=>{stopTimer();if(window.speechSynthesis)window.speechSynthesis.cancel();readingPageIndex=0;readPositions=new Set();poppedPositions=new Set();gamePageIndex=0;selectedCards=[];matchedIds=new Set();gameScreen.classList.remove("active");readingScreen.classList.add("active");renderReadingPage()};
+buildGamePages();renderReadingPage();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>故事目录</title>
+</head>
+<body>
+<h1>故事合集</h1>
+<p><a href="story21.html">故事21</a></p>
+<p><a href="story22.html">故事22</a></p>
+<p><a href="story23.html">故事23</a></p>
+<p><a href="story24.html">故事24</a></p>
+<p><a href="story25.html">故事25</a></p>
+<p><a href="story26.html">故事26</a></p>
+<p><a href="story27.html">故事27</a></p>
+<p><a href="story28.html">故事28</a></p>
+<p><a href="story29.html">故事29</a></p>
+<p><a href="story30.html">故事30</a></p>
+</body>
+</html>
